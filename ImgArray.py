@@ -36,6 +36,7 @@ def LoadCroppedImage():
             ### Image.getdata(), Image.putdata ?
 
     else:
+        return
 
 
 

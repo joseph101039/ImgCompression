@@ -6,25 +6,26 @@ import random, time
 
 
 class Autoencoder(object):
-    def __init__(self,n_features,learning_rate=0.5,n_hidden=[1000,500,250,2],alpha=0.0):
+    def __init__(self,n_x_features, n_y_features ,learning_rate=0.5,n_hidden=[1000,500,250,2],alpha=0.0):
         with tf.device('/gpu:0'):   ## ASUS-Joseph-18080601
-            self.n_features = n_features
+            self.n_x_features = n_x_features
+            self.n_y_features = n_y_features
 
             self.weights = None
             self.biases = None
 
             self.graph = tf.Graph() # initialize new grap
-            self.build(n_features,learning_rate,n_hidden,alpha) # building graph
+            self.build(n_x_features, n_y_features, learning_rate,n_hidden,alpha) # building graph
             ## ASUS-Joseph-18080601 >>> 
             self.sess = tf.Session(graph=self.graph) # create session by the graph 
             #self.sess = tf.Session(graph=self.graph, config=tf.ConfigProto(log_device_placement=True)) # create session by the graph 
             ## ASUS-Joseph-18080601 <<<
 
-    def build(self,n_features,learning_rate,n_hidden,alpha):
+    def build(self,n_x_features,n_y_features ,learning_rate,n_hidden,alpha):
         with self.graph.as_default():
             ### Input
-            self.train_features = tf.placeholder(tf.float32, shape=(None,n_features))
-            self.train_targets  = tf.placeholder(tf.float32, shape=(None,n_features))
+            self.train_features = tf.placeholder(tf.float32, shape=(n_x_features,n_y_features))
+            self.train_targets  = tf.placeholder(tf.float32, shape=(n_x_features,n_y_features))
 
             ### Optimalization
             # build neurel network structure and get their predictions and loss
@@ -48,8 +49,8 @@ class Autoencoder(object):
             self.train_op = self.optimizer.minimize(self.loss)
 
             ### Prediction
-            self.new_features = tf.placeholder(tf.float32, shape=(None,n_features))
-            self.new_targets  = tf.placeholder(tf.float32, shape=(None,n_features))
+            self.new_features = tf.placeholder(tf.float32, shape=(n_x_features,n_y_features))
+            self.new_targets  = tf.placeholder(tf.float32, shape=(n_x_features,n_y_features))
             self.new_y_, self.new_original_loss, self.new_encoder = self.structure(
                                                           features=self.new_features,
                                                           targets=self.new_targets,
@@ -65,7 +66,7 @@ class Autoencoder(object):
             self.weights = {}
             self.biases = {}
 
-            n_encoder = [self.n_features]+n_hidden
+            n_encoder = [self.n_y_features]+n_hidden
             for i,n in enumerate(n_encoder[:-1]):
                 self.weights['encode{}'.format(i+1)] = \
                     tf.Variable(tf.truncated_normal(
@@ -73,7 +74,7 @@ class Autoencoder(object):
                 self.biases['encode{}'.format(i+1)] = \
                     tf.Variable(tf.zeros( shape=(n_encoder[i+1]) ),dtype=tf.float32)
 
-            n_decoder = list(reversed(n_hidden))+[self.n_features]
+            n_decoder = list(reversed(n_hidden))+[self.n_y_features]
             for i,n in enumerate(n_decoder[:-1]):
                 self.weights['decode{}'.format(i+1)] = \
                     tf.Variable(tf.truncated_normal(
@@ -183,4 +184,5 @@ class Autoencoder(object):
     def _check_array(self,ndarray):
         ndarray = np.array(ndarray)
         if len(ndarray.shape)==1: ndarray = np.reshape(ndarray,(1,ndarray.shape[0]))
+        elif len(ndarray.shape) == 3: ndarray = np.reshape(ndarray,(ndarray.shape[0], ndarray.shape[1] * ndarray.shape[2]))  # ASUS-Joseph-18080901
         return ndarray

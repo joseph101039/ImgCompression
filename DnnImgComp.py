@@ -13,11 +13,12 @@ valid_data = mnist.validation
 test_data = mnist.test
 
 
-model_1 = Autoencoder( n_features=28*28,
+model_1 = Autoencoder( n_x_features=288,
+                     n_y_features = 288 * 3,
                      learning_rate= 0.0005,
                      #learning_rate= 0.003,    ## ASUS-Joseph-18080601
                      #n_hidden=[512,32,4],
-                     n_hidden=[512,32,14],
+                     n_hidden=[2000, 700 ,400],
                      alpha=0.0,
                     )
 model_1.fit(X=train_data.images,

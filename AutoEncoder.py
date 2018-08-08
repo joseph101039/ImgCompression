@@ -168,6 +168,7 @@ class Autoencoder(object):
             print("test_loss = %9.4f" % (test_loss))
 
     def encode(self,X):
+        print("encode()")
         X = self._check_array(X)
         return self.sess.run(self.new_encoder, feed_dict={self.new_features: X})
 
@@ -176,11 +177,15 @@ class Autoencoder(object):
         return self.sess.run(self.new_y_, feed_dict={self.new_features: X})
 
     def evaluate(self,X,Y):
+        print("evaluate()")
         X = self._check_array(X)
         return self.sess.run(self.new_loss, feed_dict={self.new_features: X,
                                                        self.new_targets: Y})
 
     def _check_array(self,ndarray):
         ndarray = np.array(ndarray)
-        if len(ndarray.shape)==1: ndarray = np.reshape(ndarray,(1,ndarray.shape[0]))
+        if len(ndarray.shape)==1: 
+            ndarray = np.reshape(ndarray,(1,ndarray.shape[0]))
+            print("Reshape ndarray.shape = ")
+            print(ndarray.shape)
         return ndarray

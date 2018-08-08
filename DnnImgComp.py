@@ -12,6 +12,16 @@ train_data = mnist.train
 valid_data = mnist.validation
 test_data = mnist.test
 
+# ASUS-Joseph-test >>>
+print("train_data.images.shape = ")
+print(train_data.images.shape)
+print("valid_data.images.shape = ")
+print(valid_data.images.shape)
+print("test_data.images.shape = ")
+print(test_data.images.shape)
+
+# ASUS-Joseph-test <<<
+
 
 model_1 = Autoencoder( n_features=28*28,
                      learning_rate= 0.0005,
@@ -22,7 +32,7 @@ model_1 = Autoencoder( n_features=28*28,
                     )
 model_1.fit(X=train_data.images,
            Y=train_data.images,
-           epochs=20,  
+           epochs=5,  
            #epochs=40,   ## ASUS-Joseph-18080601
            validation_data=(valid_data.images,valid_data.images),
            test_data=(test_data.images,test_data.images),

@@ -31,7 +31,7 @@ if not len(jpglist):
 
 file_counter = 1
 for jpg in jpglist:
-    ofname = jpg.rsplit('\\', 1)[1]
+    ofname = jpg.rsplit('\\', 1)[1].rsplit('.', 1)[0]   ## file_path\filename.JPG --> filename
     if(ofname in oflist):       ## Duplicate images should not be processed 
         continue
 
@@ -47,7 +47,7 @@ for jpg in jpglist:
             Y_Len = (int)(3456 / 288)   # = 12
             
             # oflist.write(ofname + '\n')
-            im.save(ORIGNAL_IMG_PATH + ofname,  quality = 100)
+            im.save(ORIGNAL_IMG_PATH + ofname + '.JPG',  quality = 100)
             oflist.append(ofname)
 
     

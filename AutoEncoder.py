@@ -60,6 +60,7 @@ class Autoencoder(object):
             ### Initialization
             self.init_op = tf.global_variables_initializer()  
 
+
     def structure(self,features,targets,n_hidden):
         ### Variable
         if (not self.weights) and (not self.biases):
@@ -83,7 +84,8 @@ class Autoencoder(object):
                     tf.Variable(tf.zeros( shape=(n_decoder[i+1]) ),dtype=tf.float32)                    
 
         ### Structure
-        activation = tf.nn.relu
+        #activation = tf.nn.relu
+        activation = tf.nn.sigmoid
 
         encoder = self.getDenseLayer(features,
                                      self.weights['encode1'],
@@ -114,7 +116,10 @@ class Autoencoder(object):
         y_ =  self.getDenseLayer(decoder,
                         self.weights['decode{}'.format(len(n_hidden))],
                         self.biases['decode{}'.format(len(n_hidden))],
-                        activation=tf.nn.sigmoid)      
+						# ASUS-Joseph-18081201 >>>
+                        activation=tf.nn.relu)
+                        #activation=activation) 	
+						# ASUS-Joseph-18081201 <<<
 
         loss = tf.reduce_mean(tf.pow(targets - y_, 2))
 
@@ -142,7 +147,7 @@ class Autoencoder(object):
 
             # mini-batch gradient descent
             index = [i for i in range(N)]
-            random.shuffle(index)
+            #random.shuffle(index)		# ASUS-Joseph-test  the batch size 288 is the X-axis coordination which cannot be shuffled
             while len(index)>0:
                 index_size = len(index)
                 batch_index = [index.pop() for _ in range(min(batch_size,index_size))]     
@@ -157,10 +162,19 @@ class Autoencoder(object):
             # evaluate at the end of this epoch
             msg_valid = ""
             if validation_data is not None:
-                val_loss = self.evaluate(validation_data[0],validation_data[1])
-                msg_valid = ", val_loss = %9.4f" % ( val_loss )
+                # ASUS-Joseph-18080901 >>>
+                print("validation_data[0].shape = ")
+                print(validation_data[0].shape) 
+                # ASUS-Joseph-18080901 <<<
 
-            train_loss = self.evaluate(X,Y)
+                #val_loss = self.evaluate(validation_data[0],validation_data[1])
+                val_loss = self.evaluate(validation_data[0][0],validation_data[1][0])
+                msg_valid = ", val_loss = %9.4f" % ( val_loss )
+            # ASUS-Joseph-18080901 >>>
+            #train_loss = self.evaluate(X,Y)
+            train_loss = -1.0
+            # ASUS-Joseph-18080901 <<<
+
             print("[%d/%d] %ds loss = %9.4f %s" % ( N, N, time.time()-start_time,
                                                    train_loss, msg_valid ))
 
@@ -184,5 +198,11 @@ class Autoencoder(object):
     def _check_array(self,ndarray):
         ndarray = np.array(ndarray)
         if len(ndarray.shape)==1: ndarray = np.reshape(ndarray,(1,ndarray.shape[0]))
-        elif len(ndarray.shape) == 3: ndarray = np.reshape(ndarray,(ndarray.shape[0], ndarray.shape[1] * ndarray.shape[2]))  # ASUS-Joseph-18080901
+        # ASUS-Joseph-18080901 >>>
+        ## shape(batch_size, 288, 864) -> shape(batch_size * 288, 864)
+        elif len(ndarray.shape) == 3:
+            #print("Joseph: ndarray.shape = ")
+            #print(ndarray.shape)
+            ndarray = np.reshape(ndarray,(ndarray.shape[0] * ndarray.shape[1] , ndarray.shape[2]))  
+        # ASUS-Joseph-18080901 <<<
         return ndarray

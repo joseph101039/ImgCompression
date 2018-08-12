@@ -6,25 +6,26 @@ import random, time
 
 
 class Autoencoder(object):
-    def __init__(self,n_features,learning_rate=0.5,n_hidden=[1000,500,250,2],alpha=0.0):
+    def __init__(self,n_x_features, n_y_features ,learning_rate=0.5,n_hidden=[1000,500,250,2],alpha=0.0):
         with tf.device('/gpu:0'):   ## ASUS-Joseph-18080601
-            self.n_features = n_features
+            self.n_x_features = n_x_features
+            self.n_y_features = n_y_features
 
             self.weights = None
             self.biases = None
 
             self.graph = tf.Graph() # initialize new grap
-            self.build(n_features,learning_rate,n_hidden,alpha) # building graph
+            self.build(n_x_features, n_y_features, learning_rate,n_hidden,alpha) # building graph
             ## ASUS-Joseph-18080601 >>> 
             self.sess = tf.Session(graph=self.graph) # create session by the graph 
             #self.sess = tf.Session(graph=self.graph, config=tf.ConfigProto(log_device_placement=True)) # create session by the graph 
             ## ASUS-Joseph-18080601 <<<
 
-    def build(self,n_features,learning_rate,n_hidden,alpha):
+    def build(self,n_x_features,n_y_features ,learning_rate,n_hidden,alpha):
         with self.graph.as_default():
             ### Input
-            self.train_features = tf.placeholder(tf.float32, shape=(None,n_features))
-            self.train_targets  = tf.placeholder(tf.float32, shape=(None,n_features))
+            self.train_features = tf.placeholder(tf.float32, shape=(n_x_features,n_y_features))
+            self.train_targets  = tf.placeholder(tf.float32, shape=(n_x_features,n_y_features))
 
             ### Optimalization
             # build neurel network structure and get their predictions and loss
@@ -48,8 +49,8 @@ class Autoencoder(object):
             self.train_op = self.optimizer.minimize(self.loss)
 
             ### Prediction
-            self.new_features = tf.placeholder(tf.float32, shape=(None,n_features))
-            self.new_targets  = tf.placeholder(tf.float32, shape=(None,n_features))
+            self.new_features = tf.placeholder(tf.float32, shape=(n_x_features,n_y_features))
+            self.new_targets  = tf.placeholder(tf.float32, shape=(n_x_features,n_y_features))
             self.new_y_, self.new_original_loss, self.new_encoder = self.structure(
                                                           features=self.new_features,
                                                           targets=self.new_targets,
@@ -59,13 +60,14 @@ class Autoencoder(object):
             ### Initialization
             self.init_op = tf.global_variables_initializer()  
 
+
     def structure(self,features,targets,n_hidden):
         ### Variable
         if (not self.weights) and (not self.biases):
             self.weights = {}
             self.biases = {}
 
-            n_encoder = [self.n_features]+n_hidden
+            n_encoder = [self.n_y_features]+n_hidden
             for i,n in enumerate(n_encoder[:-1]):
                 self.weights['encode{}'.format(i+1)] = \
                     tf.Variable(tf.truncated_normal(
@@ -73,7 +75,7 @@ class Autoencoder(object):
                 self.biases['encode{}'.format(i+1)] = \
                     tf.Variable(tf.zeros( shape=(n_encoder[i+1]) ),dtype=tf.float32)
 
-            n_decoder = list(reversed(n_hidden))+[self.n_features]
+            n_decoder = list(reversed(n_hidden))+[self.n_y_features]
             for i,n in enumerate(n_decoder[:-1]):
                 self.weights['decode{}'.format(i+1)] = \
                     tf.Variable(tf.truncated_normal(
@@ -82,7 +84,8 @@ class Autoencoder(object):
                     tf.Variable(tf.zeros( shape=(n_decoder[i+1]) ),dtype=tf.float32)                    
 
         ### Structure
-        activation = tf.nn.relu
+        #activation = tf.nn.relu
+        activation = tf.nn.sigmoid
 
         encoder = self.getDenseLayer(features,
                                      self.weights['encode1'],
@@ -113,7 +116,10 @@ class Autoencoder(object):
         y_ =  self.getDenseLayer(decoder,
                         self.weights['decode{}'.format(len(n_hidden))],
                         self.biases['decode{}'.format(len(n_hidden))],
-                        activation=tf.nn.sigmoid)      
+						# ASUS-Joseph-18081201 >>>
+                        activation=tf.nn.relu)
+                        #activation=activation) 	
+						# ASUS-Joseph-18081201 <<<
 
         loss = tf.reduce_mean(tf.pow(targets - y_, 2))
 
@@ -141,7 +147,7 @@ class Autoencoder(object):
 
             # mini-batch gradient descent
             index = [i for i in range(N)]
-            random.shuffle(index)
+            #random.shuffle(index)		# ASUS-Joseph-test  the batch size 288 is the X-axis coordination which cannot be shuffled
             while len(index)>0:
                 index_size = len(index)
                 batch_index = [index.pop() for _ in range(min(batch_size,index_size))]     
@@ -156,10 +162,19 @@ class Autoencoder(object):
             # evaluate at the end of this epoch
             msg_valid = ""
             if validation_data is not None:
-                val_loss = self.evaluate(validation_data[0],validation_data[1])
-                msg_valid = ", val_loss = %9.4f" % ( val_loss )
+                # ASUS-Joseph-18080901 >>>
+                print("validation_data[0].shape = ")
+                print(validation_data[0].shape) 
+                # ASUS-Joseph-18080901 <<<
 
-            train_loss = self.evaluate(X,Y)
+                #val_loss = self.evaluate(validation_data[0],validation_data[1])
+                val_loss = self.evaluate(validation_data[0][0],validation_data[1][0])
+                msg_valid = ", val_loss = %9.4f" % ( val_loss )
+            # ASUS-Joseph-18080901 >>>
+            #train_loss = self.evaluate(X,Y)
+            train_loss = -1.0
+            # ASUS-Joseph-18080901 <<<
+
             print("[%d/%d] %ds loss = %9.4f %s" % ( N, N, time.time()-start_time,
                                                    train_loss, msg_valid ))
 
@@ -168,7 +183,6 @@ class Autoencoder(object):
             print("test_loss = %9.4f" % (test_loss))
 
     def encode(self,X):
-        print("encode()")
         X = self._check_array(X)
         return self.sess.run(self.new_encoder, feed_dict={self.new_features: X})
 
@@ -177,15 +191,18 @@ class Autoencoder(object):
         return self.sess.run(self.new_y_, feed_dict={self.new_features: X})
 
     def evaluate(self,X,Y):
-        print("evaluate()")
         X = self._check_array(X)
         return self.sess.run(self.new_loss, feed_dict={self.new_features: X,
                                                        self.new_targets: Y})
 
     def _check_array(self,ndarray):
         ndarray = np.array(ndarray)
-        if len(ndarray.shape)==1: 
-            ndarray = np.reshape(ndarray,(1,ndarray.shape[0]))
-            print("Reshape ndarray.shape = ")
-            print(ndarray.shape)
+        if len(ndarray.shape)==1: ndarray = np.reshape(ndarray,(1,ndarray.shape[0]))
+        # ASUS-Joseph-18080901 >>>
+        ## shape(batch_size, 288, 864) -> shape(batch_size * 288, 864)
+        elif len(ndarray.shape) == 3:
+            #print("Joseph: ndarray.shape = ")
+            #print(ndarray.shape)
+            ndarray = np.reshape(ndarray,(ndarray.shape[0] * ndarray.shape[1] , ndarray.shape[2]))  
+        # ASUS-Joseph-18080901 <<<
         return ndarray

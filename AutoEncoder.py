@@ -84,8 +84,10 @@ class Autoencoder(object):
                     tf.Variable(tf.zeros( shape=(n_decoder[i+1]) ),dtype=tf.float32)                    
 
         ### Structure
+        activation = tf.nn.elu
         #activation = tf.nn.relu
-        activation = tf.nn.sigmoid
+        #activation = tf.nn.softplus
+        #activation = tf.nn.sigmoid
 
         encoder = self.getDenseLayer(features,
                                      self.weights['encode1'],
@@ -96,6 +98,7 @@ class Autoencoder(object):
             encoder = self.getDenseLayer(encoder,
                         self.weights['encode{}'.format(i+1)],
                         self.biases['encode{}'.format(i+1)],
+                        #activation=tf.nn.dropout(keep_prob = 0.9)) 
                         activation=activation)   
 
         encoder = self.getDenseLayer(encoder,
@@ -105,12 +108,14 @@ class Autoencoder(object):
         decoder = self.getDenseLayer(encoder,
                                      self.weights['decode1'],
                                      self.biases['decode1'],
-                                     activation=activation)
+                                     #activation=tf.nn.relu)  # ASUS-Joseph-18081302 !!!
+                                     activation=activation) 
 
         for i in range(1,len(n_hidden)-1):
             decoder = self.getDenseLayer(decoder,
                         self.weights['decode{}'.format(i+1)],
                         self.biases['decode{}'.format(i+1)],
+                        #activation=tf.nn.dropout(keep_prob = 0.9))
                         activation=activation) 
 
         y_ =  self.getDenseLayer(decoder,
@@ -162,21 +167,14 @@ class Autoencoder(object):
             # evaluate at the end of this epoch
             msg_valid = ""
             if validation_data is not None:
-                # ASUS-Joseph-18080901 >>>
-                print("validation_data[0].shape = ")
-                print(validation_data[0].shape) 
-                # ASUS-Joseph-18080901 <<<
-
-                #val_loss = self.evaluate(validation_data[0],validation_data[1])
-                val_loss = self.evaluate(validation_data[0][0],validation_data[1][0])
+                val_loss = self.evaluate(validation_data[0],validation_data[1])
                 msg_valid = ", val_loss = %9.4f" % ( val_loss )
             # ASUS-Joseph-18080901 >>>
-            #train_loss = self.evaluate(X,Y)
-            train_loss = -1.0
-            # ASUS-Joseph-18080901 <<<
-
+            #train_loss = self.evaluate(X,Y)         
+            train_loss = -1
             print("[%d/%d] %ds loss = %9.4f %s" % ( N, N, time.time()-start_time,
                                                    train_loss, msg_valid ))
+             # ASUS-Joseph-18080901 <<<
 
         if test_data is not None:
             test_loss = self.evaluate(test_data[0],test_data[1])
@@ -191,9 +189,12 @@ class Autoencoder(object):
         return self.sess.run(self.new_y_, feed_dict={self.new_features: X})
 
     def evaluate(self,X,Y):
-        X = self._check_array(X)
-        return self.sess.run(self.new_loss, feed_dict={self.new_features: X,
-                                                       self.new_targets: Y})
+        #X = self._check_array(X)
+        loss_sum = 0
+        for i in range(len(X)):
+            loss_sum = loss_sum + self.sess.run(self.new_loss, feed_dict={self.new_features: X[i],
+                                                       self.new_targets: Y[i]})
+        return loss_sum/len(X)
 
     def _check_array(self,ndarray):
         ndarray = np.array(ndarray)

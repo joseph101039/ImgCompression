@@ -31,24 +31,26 @@ test_data = mnist.test
 """
 
 flist = GetOriginalFileList()
-
+flist = flist[:250]        #### Test
 
 
 print("Build AutoEncoder")
 
 model_1 = Autoencoder( n_x_features=288,
                      n_y_features = 288 * 3,
-                     learning_rate= 0.005,
-                     #learning_rate= 0.003,    ## ASUS-Joseph-18080601
+                     #learning_rate= 0.05,
+                     learning_rate= 0.0001,    ## ASUS-Joseph-18080601 ALL BLACK with 0.005
                      #n_hidden=[512,32,4],
                      #n_hidden=[1000, 700 ,400],
-                     n_hidden=[864, 864],
-                     alpha=0.0,
+                     n_hidden=[864, 400, 300],
+                     alpha=0.001,   # ASUS-Joseph-18081303
                     )
 
 print("Start training")
 
-FILE_LOAD = 15  # number of cropped image loaded into memory 
+valid_data = LoadCroppedImage(flist, 1, 4)
+
+FILE_LOAD = 10  # number of cropped image loaded into memory 
 
 Cim = ThreadWithReturnValue(target=LoadCroppedImage, args=(flist, 0, FILE_LOAD - 1))
 Cim.start()
@@ -64,9 +66,9 @@ for i in range(1,int(len(flist) / FILE_LOAD)):
             Y=train_data,
             epochs=1,  
             #epochs=40,   ## ASUS-Joseph-18080601
-            #validation_data=(valid_data,valid_data),
+            validation_data=(valid_data,valid_data),
             #test_data=(test_data,test_data),
-            validation_data = None,
+            #validation_data = None,
             test_data = None,
             batch_size = 288,
             )

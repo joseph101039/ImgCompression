@@ -21,6 +21,7 @@ class Autoencoder(object):
             #self.sess = tf.Session(graph=self.graph, config=tf.ConfigProto(log_device_placement=True)) # create session by the graph 
             ## ASUS-Joseph-18080601 <<<
 
+
     def build(self,n_x_features,n_y_features ,learning_rate,n_hidden,alpha):
         with self.graph.as_default():
             ### Input
@@ -44,8 +45,21 @@ class Autoencoder(object):
             # total loss
             self.loss = self.original_loss + alpha * self.regularizer
 
+            ###########################
+            #
             # define training operation
-            self.optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
+            #
+            ############################
+            # ASUS-Joseph-18081304 >>>
+            exp_learning_rate = tf.train.exponential_decay(
+                learning_rate = learning_rate, global_step = 1, decay_steps = 288, decay_rate = 0.99, staircase=True)
+
+            self.optimizer = tf.train.AdamOptimizer(learning_rate=exp_learning_rate)        #<---- current used 
+            # ASUS-Joseph-18081304 <<<
+
+            #self.optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate)     # nan
+            #self.optimizer = tf.train.AdagradOptimizer(learning_rate=learning_rate, initial_accumulator_value=0.1)
+           # self.optimizer = tf.train.MomentumOptimizer(learning_rate=learning_rate, momentum = 0.1)   #nan
             self.train_op = self.optimizer.minimize(self.loss)
 
             ### Prediction
@@ -71,7 +85,9 @@ class Autoencoder(object):
             for i,n in enumerate(n_encoder[:-1]):
                 self.weights['encode{}'.format(i+1)] = \
                     tf.Variable(tf.truncated_normal(
-                        shape=(n,n_encoder[i+1]),stddev=0.1),dtype=tf.float32)
+                        shape=(n,n_encoder[i+1]),
+                        #mean = 0.5,                       # ASUS-Joseph-18081301 
+                        stddev=0.1),dtype=tf.float32)
                 self.biases['encode{}'.format(i+1)] = \
                     tf.Variable(tf.zeros( shape=(n_encoder[i+1]) ),dtype=tf.float32)
 
@@ -79,14 +95,17 @@ class Autoencoder(object):
             for i,n in enumerate(n_decoder[:-1]):
                 self.weights['decode{}'.format(i+1)] = \
                     tf.Variable(tf.truncated_normal(
-                        shape=(n,n_decoder[i+1]),stddev=0.1),dtype=tf.float32)
+                        shape=(n,n_decoder[i+1]),
+                        #mean = 0.5,                       # ASUS-Joseph-18081301
+                        stddev=0.1),dtype=tf.float32)
                 self.biases['decode{}'.format(i+1)] = \
                     tf.Variable(tf.zeros( shape=(n_decoder[i+1]) ),dtype=tf.float32)                    
 
         ### Structure
-        activation = tf.nn.elu
-        #activation = tf.nn.relu
-        #activation = tf.nn.softplus
+        #activation = tf.nn.selu
+        activation = tf.nn.elu  #<--- current best
+        #activation = tf.nn.relu    #<-- all black
+        #activation = tf.nn.softsign
         #activation = tf.nn.sigmoid
 
         encoder = self.getDenseLayer(features,
@@ -108,7 +127,7 @@ class Autoencoder(object):
         decoder = self.getDenseLayer(encoder,
                                      self.weights['decode1'],
                                      self.biases['decode1'],
-                                     #activation=tf.nn.relu)  # ASUS-Joseph-18081302 !!!
+                                     #activation=tf.nn.softsign)  # ASUS-Joseph-18081302 !!!
                                      activation=activation) 
 
         for i in range(1,len(n_hidden)-1):
@@ -116,6 +135,7 @@ class Autoencoder(object):
                         self.weights['decode{}'.format(i+1)],
                         self.biases['decode{}'.format(i+1)],
                         #activation=tf.nn.dropout(keep_prob = 0.9))
+                        #activation=tf.nn.softsign)  # ASUS-Joseph-18081302 !!!
                         activation=activation) 
 
         y_ =  self.getDenseLayer(decoder,
@@ -126,7 +146,10 @@ class Autoencoder(object):
                         #activation=activation) 	
 						# ASUS-Joseph-18081201 <<<
 
-        loss = tf.reduce_mean(tf.pow(targets - y_, 2))
+        #loss = tf.reduce_mean(tf.pow(targets - y_, 2))
+        #loss = tf.losses.absolute_difference(targets, y_) 
+        loss = tf.contrib.losses.mean_squared_error(targets, y_)    #<--- current best: Edge is smoother than absolute_difference
+        #loss = tf.losses.log_loss(targets, y_, epsilon=1e-01)
 
         return (y_,loss,encoder)
 

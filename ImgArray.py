@@ -5,6 +5,7 @@ from PIL import Image
 
 
 CROPPED_IMG_PATH = "./JepgPy/Photos/cropped/"
+ORIGINAL_IMG_PATH = "./JepgPy/Photos/original/"
 ORIGINAL_FLIST_PATH = "./JepgPy/Original_File_List.txt"
 NUM_CROP_PER_IMAGE = 192
 
@@ -20,8 +21,23 @@ def GetOriginalFileList():
 def OriToCropFname(OriFname, number):
     return OriFname.rsplit('.', 1)[0] + '_' + str(number) + '.jpg'
 
+def SliceOriImage(OriFname):
+    im = Image.open(ORIGINAL_IMG_PATH + OriFname)
+    data = []
+    if (im.size == (4608, 3456)):
+        X_Len = (int)(4608 / 288)   # = 16
+        Y_Len = (int)(3456 / 288)   # = 12)
+        for j in range(Y_Len):
+            for i in range(X_Len):
+                nim = im.crop((i * 288, j * 288, (i + 1) * 288, (j + 1) * 288))
+                arr = np.asarray(nim, dtype = 'float32')
+                data.append(np.reshape(arr, (arr.shape[0], arr.shape[1]*arr.shape[2])))
+    return data
+                    
 
-def LoadCroppedImage(flist, OriIndexFrom, OriIndexTo):
+
+
+def LoadCroppedImage(flist, OriIndexFrom, OriIndexTo, shuffle=True):
     # Since a original image is about 160M pixels and 12 bytes (float32 for R,G,B value) for each pixel, 192MB memory space is require for an image.
     # That is 1MB memory for a cropped image, we load 3000 cropped image each time. (total 3GB memory )
     
@@ -38,18 +54,15 @@ def LoadCroppedImage(flist, OriIndexFrom, OriIndexTo):
         print("\nInvalid parameter\n")
         return None
 
-        
-
     data = []
     for fname in flist[OriIndexFrom:OriIndexTo + 1]:
-        for num in range(NUM_CROP_PER_IMAGE):
-            im = Image.open(CROPPED_IMG_PATH + OriToCropFname(fname, num))
-            arr = np.asarray(im, dtype = np.float32)
-            arr = arr.reshape((arr.shape[0], arr.shape[1] * arr.shape[2])) ## shape = (288, 288, 3)
-            data.append(arr)
-            ### Image.getdata(), Image.putdata ?
-        
+        data = data + SliceOriImage(fname)
+           
     data = np.asarray(data, dtype = np.float32)
+    if shuffle:
+        np.random.shuffle(data)
     return data
 
-    
+def ShowImage(filename):
+    Img = Image.open(filename)
+    Img.show()

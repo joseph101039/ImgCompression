@@ -1,6 +1,11 @@
-from ImgArray import*
+from ImgArray import *
 from AutoEncoder import *
 from threading import Thread    # ASUS-Joseph-18081101
+
+from tkinter import *               # PYTHON 3 ONLY
+
+from PIL import Image
+
 
 # ASUS-Joseph-18081101 >>>
 class ThreadWithReturnValue(Thread):
@@ -14,6 +19,38 @@ class ThreadWithReturnValue(Thread):
     def join(self):
         Thread.join(self)
         return self._return
+
+############################
+#
+#       Prediction
+#
+############################
+
+
+def PredictTestFileAndShow(flist, findex = 0):
+
+    ############# notice DPI and save file may change content (JPEG compression)#################
+    X_Len = (int)(4608 / 288)   # = 16
+    Y_Len = (int)(3456 / 288)   # = 12
+
+    TestFileIndex = 0
+
+    AssImg = Image.new('RGB', (4608, 3456), (255, 255, 255))
+    test_data = LoadCroppedImage(flist, TestFileIndex,TestFileIndex, False) # shape = (384, 288, 864)
+
+    for i in range(X_Len * Y_Len):
+        Pred = np.reshape(model_1.predict(test_data[i]),(288,288, 3))
+        #print(Pred[0])         ####
+        #os.system("pause")  ####
+        Cim = Image.fromarray(np.asarray(Pred, dtype=np.int8), mode="RGB")
+        Left = (i % X_Len) * 288
+        Upper = int(i / X_Len) * 288
+        AssImg.paste(Cim, (Left, Upper, Left + 288, Upper + 288))      ## a 4-tuple defining the left, upper, right, and lower pixel coordinate
+        
+    PredFile = flist[TestFileIndex].rsplit('.', 1)[0] + "_pred_" +  str(findex) + ".jpg"
+    AssImg.save(PredFile, quality = 100)
+    ShowImage(PredFile)
+
 
 # ASUS-Joseph-18081101 <<<
 
@@ -31,34 +68,32 @@ test_data = mnist.test
 """
 
 flist = GetOriginalFileList()
-flist = flist[:250]        #### Test
+#flist = flist[:100]        #### Test
 
 
 print("Build AutoEncoder")
 
 model_1 = Autoencoder( n_x_features=288,
                      n_y_features = 288 * 3,
-                     #learning_rate= 0.05,
-                     learning_rate= 0.0001,    ## ASUS-Joseph-18080601 ALL BLACK with 0.005
-                     #n_hidden=[512,32,4],
-                     #n_hidden=[1000, 700 ,400],
+                     learning_rate= 0.0005,    ## last best value is 0.0005 (loss mean 2000 min 1600); 0.005 all black
                      n_hidden=[864, 400, 300],
-                     alpha=0.001,   # ASUS-Joseph-18081303
+                     alpha=0.00,
+                     #alpha=0.001,   # ASUS-Joseph-18081303
                     )
 
 print("Start training")
 
-valid_data = LoadCroppedImage(flist, 1, 4)
+valid_data = LoadCroppedImage(flist, 1, 3, False)
 
 FILE_LOAD = 10  # number of cropped image loaded into memory 
 
-Cim = ThreadWithReturnValue(target=LoadCroppedImage, args=(flist, 0, FILE_LOAD - 1))
+Cim = ThreadWithReturnValue(target=LoadCroppedImage, args=(flist, 0, FILE_LOAD - 1, True))
 Cim.start()
 train_data = Cim.join()
 
 for i in range(1,int(len(flist) / FILE_LOAD)):
 
-    Cim = ThreadWithReturnValue(target=LoadCroppedImage, args=(flist, i * FILE_LOAD, (i+1) * FILE_LOAD - 1))        # ASUS-Joseph-18081101
+    Cim = ThreadWithReturnValue(target=LoadCroppedImage, args=(flist, i * FILE_LOAD, (i+1) * FILE_LOAD - 1, True))        # ASUS-Joseph-18081101
     Cim.start()
 
     print("Training data: Image %d" %(i * FILE_LOAD))
@@ -75,6 +110,9 @@ for i in range(1,int(len(flist) / FILE_LOAD)):
 
     train_data = Cim.join()
 
+    if (i % 10) == 0:
+        PredictTestFileAndShow(flist, i * FILE_LOAD)
+
 """
 fig, axis = plt.subplots(2, 15, figsize=(15, 2))
 for i in range(0,15):
@@ -85,31 +123,26 @@ for i in range(0,15):
     axis[1][i].imshow(img, cmap='gray')
 plt.show()
 """
-############################
+
+
+
+##########################
 #
-#   Prediction
+#   Complete Message Box
 #
-############################
+##########################
 
-############# notice DPI and save file may change content (JPEG compression)#################
-X_Len = (int)(4608 / 288)   # = 16
-Y_Len = (int)(3456 / 288)   # = 12
+PredictTestFileAndShow(flist, 0)
 
-AssImg = Image.new('RGB', (4608, 3456), (255, 255, 255))
-test_data = LoadCroppedImage(flist, 243,243) # shape = (384, 288, 864)
+#SI = ThreadWithReturnValue(target=ShowImage,args=('FILE0036_pred.jpg',))
+#SI.start()
+#SI.join()
 
-for i in range(X_Len * Y_Len):
-    Pred = np.reshape(model_1.predict(test_data[i]),(288,288, 3))
-    #print(Pred[0])         ####
-    #os.system("pause")  ####
-    Cim = Image.fromarray(np.asarray(Pred, dtype=np.int8), mode="RGB")
-    Left = (i % X_Len) * 288
-    Upper = int(i / X_Len) * 288
-    AssImg.paste(Cim, (Left, Upper, Left + 288, Upper + 288))      ## a 4-tuple defining the left, upper, right, and lower pixel coordinate
-    
+root = Tk()
+root.wm_attributes('-topmost',1)
+root.title('Program Completed')
+Label(root, text = "The testing image: " + PredFile + " is created\nPlease close this windows.", font=("Courier", 20)).grid()
 
-PredFile = flist[243].rsplit('.', 1)[0] + "_pred.jpg"
-AssImg.save(PredFile, quality = 100)
-
+root.mainloop()
 
 #fig, axis = plt.subplots(1, 2, figsize=(2, 1))

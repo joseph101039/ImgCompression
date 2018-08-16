@@ -7,6 +7,7 @@ from tkinter import *               # PYTHON 3 ONLY
 from PIL import Image
 
 
+
 # ASUS-Joseph-18081101 >>>
 class ThreadWithReturnValue(Thread):
     def __init__(self, group=None, target=None, name=None,
@@ -25,13 +26,17 @@ class ThreadWithReturnValue(Thread):
 #       Prediction
 #
 ############################
-
+### Global variables ###
+## Slice a image into SWid * SHei pieces of image
+SWid = 12
+SHei = 12
+N_Shape = SWid * SHei * 3
 
 def PredictTestFileAndShow(flist, findex = 0):
 
     ############# notice DPI and save file may change content (JPEG compression)#################
-    X_Len = (int)(4608 / 288)   # = 16
-    Y_Len = (int)(3456 / 288)   # = 12
+    X_Len = (int)(4608 / SWid)   # = 16
+    Y_Len = (int)(3456 / SHei)   # = 12
 
     TestFileIndex = 0
 
@@ -39,13 +44,13 @@ def PredictTestFileAndShow(flist, findex = 0):
     test_data = LoadCroppedImage(flist, TestFileIndex,TestFileIndex, False) # shape = (384, 288, 864)
 
     for i in range(X_Len * Y_Len):
-        Pred = np.reshape(model_1.predict(test_data[i]),(288,288, 3))
+        Pred = np.reshape(model_1.predict(test_data[i]),(SWid, SHei, 3))
         #print(Pred[0])         ####
         #os.system("pause")  ####
         Cim = Image.fromarray(np.asarray(Pred, dtype=np.int8), mode="RGB")
-        Left = (i % X_Len) * 288
-        Upper = int(i / X_Len) * 288
-        AssImg.paste(Cim, (Left, Upper, Left + 288, Upper + 288))      ## a 4-tuple defining the left, upper, right, and lower pixel coordinate
+        Left = (i % X_Len) * SWid
+        Upper = int(i / X_Len) * SHei
+        AssImg.paste(Cim, (Left, Upper, Left + SWid, Upper + SHei))      ## a 4-tuple defining the left, upper, right, and lower pixel coordinate
         
     PredFile = flist[TestFileIndex].rsplit('.', 1)[0] + "_pred_" +  str(findex) + ".jpg"
     AssImg.save(PredFile, quality = 100)
@@ -58,41 +63,49 @@ def PredictTestFileAndShow(flist, findex = 0):
 # Config the matplotlib backend as plotting inline in IPython
 #%matplotlib inline
 
-"""
-from tensorflow.examples.tutorials.mnist import input_data
-mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
 
-train_data = mnist.train
-valid_data = mnist.validation
-test_data = mnist.test
-"""
+##################################################
+#
+#   Machine declaration
+#
+##################################################
 
-flist = GetOriginalFileList()
-#flist = flist[:100]        #### Test
-
+## Since a piece of sliced image is 12 * 12 pixels, the input data matrice should be BATCH_SIZE * N_Shape
 
 print("Build AutoEncoder")
 
-model_1 = Autoencoder( n_x_features=288,
-                     n_y_features = 288 * 3,
+model_1 = Autoencoder( n_features=N_Shape,
                      learning_rate= 0.0005,    ## last best value is 0.0005 (loss mean 2000 min 1600); 0.005 all black
-                     n_hidden=[864, 400, 300],
-                     alpha=0.00,
-                     #alpha=0.001,   # ASUS-Joseph-18081303
+                     n_hidden=[N_Shape, 1000, 500],
+                     #alpha=0.00,
+                     alpha=0.001,   # ASUS-Joseph-18081303
+                     decay_rate = 0.99       # 1 means no decay
                     )
 
+
+
+##################################################
+#
+#   Training process
+#
+##################################################
+
+
+### Global Variables ###
+FILE_LOAD = 5  # number of cropped image loaded into memory at once (consider memory size limitation)
+
+flist = GetOriginalFileList()
+valid_data = LoadCroppedImage(flist, 1, 2, False)
 print("Start training")
 
-valid_data = LoadCroppedImage(flist, 1, 3, False)
-
-FILE_LOAD = 10  # number of cropped image loaded into memory 
 
 Cim = ThreadWithReturnValue(target=LoadCroppedImage, args=(flist, 0, FILE_LOAD - 1, True))
 Cim.start()
 train_data = Cim.join()
 
-for i in range(1,int(len(flist) / FILE_LOAD)):
 
+
+for i in range(1,int(len(flist) / FILE_LOAD)):
     Cim = ThreadWithReturnValue(target=LoadCroppedImage, args=(flist, i * FILE_LOAD, (i+1) * FILE_LOAD - 1, True))        # ASUS-Joseph-18081101
     Cim.start()
 
@@ -101,11 +114,10 @@ for i in range(1,int(len(flist) / FILE_LOAD)):
             Y=train_data,
             epochs=1,  
             #epochs=40,   ## ASUS-Joseph-18080601
-            validation_data=(valid_data,valid_data),
+            validation_data=valid_data,
             #test_data=(test_data,test_data),
-            #validation_data = None,
             test_data = None,
-            batch_size = 288,
+            batch_size = 500,
             )
 
     train_data = Cim.join()

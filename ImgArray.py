@@ -2,12 +2,21 @@ import numpy as np
 import os
 from PIL import Image
 
+##############################################################################################
+#
+#   Image processing for loading or storing image and tranform between Array and Jpeg object
+#
+##############################################################################################
 
 
+### Global Variables ###
 CROPPED_IMG_PATH = "./JepgPy/Photos/cropped/"
 ORIGINAL_IMG_PATH = "./JepgPy/Photos/original/"
 ORIGINAL_FLIST_PATH = "./JepgPy/Original_File_List.txt"
-NUM_CROP_PER_IMAGE = 192
+
+## Slice a image into SWid * SHei pieces of image
+SWid = 12
+SHei = 12
 
 def GetOriginalFileList():
     if os.path.exists(ORIGINAL_FLIST_PATH):
@@ -22,22 +31,29 @@ def OriToCropFname(OriFname, number):
     return OriFname.rsplit('.', 1)[0] + '_' + str(number) + '.jpg'
 
 def SliceOriImage(OriFname):
-    im = Image.open(ORIGINAL_IMG_PATH + OriFname)
-    data = []
-    if (im.size == (4608, 3456)):
-        X_Len = (int)(4608 / 288)   # = 16
-        Y_Len = (int)(3456 / 288)   # = 12)
+    try:
+        im = Image.open(ORIGINAL_IMG_PATH + OriFname)
+        Width, Height = im.size
+        data = []
+        #if (im.size == (4608, 3456)):
+        X_Len = int(Width / SWid)   # = 16
+        Y_Len = int(Height / SHei)   # = 12)
         for j in range(Y_Len):
             for i in range(X_Len):
-                nim = im.crop((i * 288, j * 288, (i + 1) * 288, (j + 1) * 288))
+                nim = im.crop((i * SWid, j * SHei, (i + 1) * SWid, (j + 1) * SHei))
                 arr = np.asarray(nim, dtype = 'float32')
-                data.append(np.reshape(arr, (arr.shape[0], arr.shape[1]*arr.shape[2])))
+                data.append(np.reshape(arr, (arr.shape[0] * arr.shape[1] * arr.shape[2])))
+    except:
+        data = None
     return data
                     
+def ShowImage(filename):
+    Img = Image.open(filename)
+    Img.show()
 
 
 
-def LoadCroppedImage(flist, OriIndexFrom, OriIndexTo, shuffle=True):
+def LoadCroppedImage(flist, OriIndexFrom, OriIndexTo, shuffle=False):
     # Since a original image is about 160M pixels and 12 bytes (float32 for R,G,B value) for each pixel, 192MB memory space is require for an image.
     # That is 1MB memory for a cropped image, we load 3000 cropped image each time. (total 3GB memory )
     
@@ -63,6 +79,4 @@ def LoadCroppedImage(flist, OriIndexFrom, OriIndexTo, shuffle=True):
         np.random.shuffle(data)
     return data
 
-def ShowImage(filename):
-    Img = Image.open(filename)
-    Img.show()
+

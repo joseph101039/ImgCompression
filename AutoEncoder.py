@@ -6,27 +6,26 @@ import random, time
 
 
 class Autoencoder(object):
-    def __init__(self,n_x_features, n_y_features ,learning_rate=0.5,n_hidden=[1000,500,250,2],alpha=0.0):
+    def __init__(self,n_features ,learning_rate=0.5,n_hidden=[1000,500,250,2],alpha=0.0, decay_rate = 1.0):
         with tf.device('/gpu:0'):   ## ASUS-Joseph-18080601
-            self.n_x_features = n_x_features
-            self.n_y_features = n_y_features
+            self.n_features = n_features
 
             self.weights = None
             self.biases = None
 
             self.graph = tf.Graph() # initialize new grap
-            self.build(n_x_features, n_y_features, learning_rate,n_hidden,alpha) # building graph
+            self.build(n_features, learning_rate,n_hidden,alpha, decay_rate) # building graph
             ## ASUS-Joseph-18080601 >>> 
             self.sess = tf.Session(graph=self.graph) # create session by the graph 
             #self.sess = tf.Session(graph=self.graph, config=tf.ConfigProto(log_device_placement=True)) # create session by the graph 
             ## ASUS-Joseph-18080601 <<<
 
 
-    def build(self,n_x_features,n_y_features ,learning_rate,n_hidden,alpha):
+    def build(self,n_features ,learning_rate,n_hidden,alpha, decay_rate):
         with self.graph.as_default():
             ### Input
-            self.train_features = tf.placeholder(tf.float32, shape=(n_x_features,n_y_features))
-            self.train_targets  = tf.placeholder(tf.float32, shape=(n_x_features,n_y_features))
+            self.train_features = tf.placeholder(tf.float32, shape=(None,n_features))
+            self.train_targets  = tf.placeholder(tf.float32, shape=(None,n_features))
 
             ### Optimalization
             # build neurel network structure and get their predictions and loss
@@ -50,21 +49,27 @@ class Autoencoder(object):
             # define training operation
             #
             ############################
-            # ASUS-Joseph-18081304 >>>
-            exp_learning_rate = tf.train.exponential_decay(
-                learning_rate = learning_rate, global_step = 1, decay_steps = 288, decay_rate = 0.99, staircase=True)
 
-            self.optimizer = tf.train.AdamOptimizer(learning_rate=exp_learning_rate)        #<---- current used 
+            ## Choose an optimizer
+            # ASUS-Joseph-18081304 >>>
+            if decay_rate != 1.0:
+                exp_learning_rate = tf.train.exponential_decay(
+                    learning_rate = learning_rate, global_step = 1, decay_steps = 100, decay_rate = decay_rate, staircase=True)
+                self.optimizer = tf.train.AdamOptimizer(learning_rate=exp_learning_rate)        #<---- current used 
+            else:
+                self.optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)        #<---- current used 
+
+            
             # ASUS-Joseph-18081304 <<<
 
             #self.optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate)     # nan
             #self.optimizer = tf.train.AdagradOptimizer(learning_rate=learning_rate, initial_accumulator_value=0.1)
-           # self.optimizer = tf.train.MomentumOptimizer(learning_rate=learning_rate, momentum = 0.1)   #nan
+            #self.optimizer = tf.train.MomentumOptimizer(learning_rate=learning_rate, momentum = 0.1)   #nan
             self.train_op = self.optimizer.minimize(self.loss)
 
             ### Prediction
-            self.new_features = tf.placeholder(tf.float32, shape=(n_x_features,n_y_features))
-            self.new_targets  = tf.placeholder(tf.float32, shape=(n_x_features,n_y_features))
+            self.new_features = tf.placeholder(tf.float32, shape=(None,n_features))
+            self.new_targets  = tf.placeholder(tf.float32, shape=(None,n_features))
             self.new_y_, self.new_original_loss, self.new_encoder = self.structure(
                                                           features=self.new_features,
                                                           targets=self.new_targets,
@@ -81,7 +86,7 @@ class Autoencoder(object):
             self.weights = {}
             self.biases = {}
 
-            n_encoder = [self.n_y_features]+n_hidden
+            n_encoder = [self.n_features]+n_hidden
             for i,n in enumerate(n_encoder[:-1]):
                 self.weights['encode{}'.format(i+1)] = \
                     tf.Variable(tf.truncated_normal(
@@ -91,7 +96,7 @@ class Autoencoder(object):
                 self.biases['encode{}'.format(i+1)] = \
                     tf.Variable(tf.zeros( shape=(n_encoder[i+1]) ),dtype=tf.float32)
 
-            n_decoder = list(reversed(n_hidden))+[self.n_y_features]
+            n_decoder = list(reversed(n_hidden))+[self.n_features]
             for i,n in enumerate(n_decoder[:-1]):
                 self.weights['decode{}'.format(i+1)] = \
                     tf.Variable(tf.truncated_normal(
@@ -102,11 +107,15 @@ class Autoencoder(object):
                     tf.Variable(tf.zeros( shape=(n_decoder[i+1]) ),dtype=tf.float32)                    
 
         ### Structure
+        ### choose an activation function 
+
+        # ASUS-Joseph-18081601 >>>
         #activation = tf.nn.selu
         activation = tf.nn.elu  #<--- current best
         #activation = tf.nn.relu    #<-- all black
         #activation = tf.nn.softsign
         #activation = tf.nn.sigmoid
+        # ASUS-Joseph-18081601 <<<
 
         encoder = self.getDenseLayer(features,
                                      self.weights['encode1'],
@@ -142,8 +151,8 @@ class Autoencoder(object):
                         self.weights['decode{}'.format(len(n_hidden))],
                         self.biases['decode{}'.format(len(n_hidden))],
 						# ASUS-Joseph-18081201 >>>
-                        activation=tf.nn.relu)
-                        #activation=activation) 	
+                        #activation=tf.nn.relu)
+                        activation=activation) 	
 						# ASUS-Joseph-18081201 <<<
 
         #loss = tf.reduce_mean(tf.pow(targets - y_, 2))
@@ -190,14 +199,12 @@ class Autoencoder(object):
             # evaluate at the end of this epoch
             msg_valid = ""
             if validation_data is not None:
-                val_loss = self.evaluate(validation_data[0],validation_data[1])
+                val_loss = self.evaluate(validation_data,validation_data)
                 msg_valid = ", val_loss = %9.4f" % ( val_loss )
-            # ASUS-Joseph-18080901 >>>
-            #train_loss = self.evaluate(X,Y)         
-            train_loss = -1
+            
+            train_loss = self.evaluate(X,Y)         
             print("[%d/%d] %ds loss = %9.4f %s" % ( N, N, time.time()-start_time,
                                                    train_loss, msg_valid ))
-             # ASUS-Joseph-18080901 <<<
 
         if test_data is not None:
             test_loss = self.evaluate(test_data[0],test_data[1])
@@ -212,21 +219,22 @@ class Autoencoder(object):
         return self.sess.run(self.new_y_, feed_dict={self.new_features: X})
 
     def evaluate(self,X,Y):
-        #X = self._check_array(X)
+        # ASUS-Joseph-18081601 >>>
+        """
+        X = self._check_array(X)
         loss_sum = 0
         for i in range(len(X)):
             loss_sum = loss_sum + self.sess.run(self.new_loss, feed_dict={self.new_features: X[i],
                                                        self.new_targets: Y[i]})
+        """
+        loss_sum = 0
+        loss_sum = loss_sum + self.sess.run(self.new_loss, feed_dict={self.new_features: X,
+                                                       self.new_targets: Y})
+        
+        # ASUS-Joseph-18081601 <<<
         return loss_sum/len(X)
 
     def _check_array(self,ndarray):
         ndarray = np.array(ndarray)
         if len(ndarray.shape)==1: ndarray = np.reshape(ndarray,(1,ndarray.shape[0]))
-        # ASUS-Joseph-18080901 >>>
-        ## shape(batch_size, 288, 864) -> shape(batch_size * 288, 864)
-        elif len(ndarray.shape) == 3:
-            #print("Joseph: ndarray.shape = ")
-            #print(ndarray.shape)
-            ndarray = np.reshape(ndarray,(ndarray.shape[0] * ndarray.shape[1] , ndarray.shape[2]))  
-        # ASUS-Joseph-18080901 <<<
         return ndarray

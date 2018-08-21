@@ -15,6 +15,8 @@ ORIGINAL_IMG_PATH = "./JepgPy/Photos/original/"
 ORIGINAL_FLIST_PATH = "./JepgPy/Original_File_List.txt"
 
 ## Slice a image into SWid * SHei pieces of image
+global  SWid
+global  SHei
 SWid = 12
 SHei = 12
 
@@ -72,9 +74,12 @@ def LoadCroppedImage(flist, OriIndexFrom, OriIndexTo, shuffle=False):
 
     data = []
     for fname in flist[OriIndexFrom:OriIndexTo + 1]:
-        data = data + SliceOriImage(fname)
+        Img = SliceOriImage(fname)
+        if Img is not None:
+            data = data + Img
            
     data = np.asarray(data, dtype = np.float32)
+
     if shuffle:
         np.random.shuffle(data)
     return data

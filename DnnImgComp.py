@@ -28,8 +28,6 @@ class ThreadWithReturnValue(Thread):
 ############################
 ### Global variables ###
 ## Slice a image into SWid * SHei pieces of image
-SWid = 12
-SHei = 12
 N_Shape = SWid * SHei * 3
 
 def PredictTestFileAndShow(flist, findex = 0):
@@ -43,8 +41,14 @@ def PredictTestFileAndShow(flist, findex = 0):
     AssImg = Image.new('RGB', (4608, 3456), (255, 255, 255))
     test_data = LoadCroppedImage(flist, TestFileIndex,TestFileIndex, False) # shape = (384, 288, 864)
 
+    PredData = model_1.predict(test_data)
+	### Fix the RGB value overflow error when ReLU transform function is selected for output layer.
+	### ReLU does not set the upper bound value.
+    PredData = PredData.clip(max=255, min=0)
+
+
     for i in range(X_Len * Y_Len):
-        Pred = np.reshape(model_1.predict(test_data[i]),(SWid, SHei, 3))
+        Pred = np.reshape(PredData[i], (SWid, SHei, 3))
         #print(Pred[0])         ####
         #os.system("pause")  ####
         Cim = Image.fromarray(np.asarray(Pred, dtype=np.int8), mode="RGB")
@@ -75,11 +79,12 @@ def PredictTestFileAndShow(flist, findex = 0):
 print("Build AutoEncoder")
 
 model_1 = Autoencoder( n_features=N_Shape,
-                     learning_rate= 0.0005,    ## last best value is 0.0005 (loss mean 2000 min 1600); 0.005 all black
-                     n_hidden=[N_Shape, 1000, 500],
+                     #learning_rate= 0.0005,    ## last best value is 0.0005 (loss mean 2000 min 1600); 0.005 all black
+                     learning_rate= 0.0005,
+                     n_hidden=[N_Shape, 400, 300],
                      #alpha=0.00,
                      alpha=0.001,   # ASUS-Joseph-18081303
-                     decay_rate = 0.99       # 1 means no decay
+                     decay_rate = 0.99      # 1 means no decay
                     )
 
 
@@ -95,7 +100,7 @@ model_1 = Autoencoder( n_features=N_Shape,
 FILE_LOAD = 5  # number of cropped image loaded into memory at once (consider memory size limitation)
 
 flist = GetOriginalFileList()
-valid_data = LoadCroppedImage(flist, 1, 2, False)
+valid_data = LoadCroppedImage(flist, 0, 0, False)
 print("Start training")
 
 

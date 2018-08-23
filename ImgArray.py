@@ -17,8 +17,10 @@ ORIGINAL_FLIST_PATH = "./JepgPy/Original_File_List.txt"
 ## Slice a image into SWid * SHei pieces of image
 global  SWid
 global  SHei
-SWid = 12
-SHei = 12
+global  FILE_LOAD
+FILE_LOAD = 5  # number of cropped image loaded into memory at once (consider memory size limitation)
+SHei = 18
+SWid = 18
 
 def GetOriginalFileList():
     if os.path.exists(ORIGINAL_FLIST_PATH):
@@ -38,13 +40,14 @@ def SliceOriImage(OriFname):
         Width, Height = im.size
         data = []
         #if (im.size == (4608, 3456)):
-        X_Len = int(Width / SWid)   # = 16
-        Y_Len = int(Height / SHei)   # = 12)
+        X_Len = int(Width / SWid)
+        Y_Len = int(Height / SHei)
         for j in range(Y_Len):
             for i in range(X_Len):
                 nim = im.crop((i * SWid, j * SHei, (i + 1) * SWid, (j + 1) * SHei))
                 arr = np.asarray(nim, dtype = 'float32')
                 data.append(np.reshape(arr, (arr.shape[0] * arr.shape[1] * arr.shape[2])))
+        im.close()
     except:
         data = None
     return data
@@ -85,3 +88,23 @@ def LoadCroppedImage(flist, OriIndexFrom, OriIndexTo, shuffle=False):
     return data
 
 
+def ShiftedCroppedImage(OriFname):
+    try:
+        im = Image.open(ORIGINAL_IMG_PATH + OriFname)
+        im = im.crop((SWid / 2, SHei / 2, im.size[0] - SWid / 2, im.size[1] - SHei / 2))
+        Width, Height = im.size
+
+        data = []
+        #if (im.size == (4608, 3456)):
+        X_Len = int(Width / SWid)   # = 16
+        Y_Len = int(Height / SHei)   # = 12)
+        for j in range(Y_Len):
+            for i in range(X_Len):
+                nim = im.crop((i * SWid, j * SHei, (i + 1) * SWid, (j + 1) * SHei))
+                arr = np.asarray(nim, dtype = 'float32')
+                data.append(np.reshape(arr, (arr.shape[0] * arr.shape[1] * arr.shape[2])))
+
+        data = np.asarray(data, dtype = np.float32)
+    except:
+        data = None
+    return data

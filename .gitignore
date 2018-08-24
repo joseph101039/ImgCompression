@@ -2,4 +2,7 @@
 *.JPG
 *.txt
 *.pyc
+*.code-workspace
 /JepgPy/Photos
+/.vscode
+/Test

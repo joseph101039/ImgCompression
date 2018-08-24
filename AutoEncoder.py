@@ -1,9 +1,9 @@
 from __future__ import print_function
 import numpy as np
 import tensorflow as tf
-import matplotlib.pyplot as plt     #Installation command: python -mpip install -U matplotlib
+#import matplotlib.pyplot as plt     #Installation command: python -mpip install -U matplotlib
 import random, time
-
+from Token import *
 
 class Autoencoder(object):
     def __init__(self,n_features ,learning_rate=0.5,n_hidden=[1000,500,250,2],alpha=0.0, decay_rate = 1.0):
@@ -12,6 +12,7 @@ class Autoencoder(object):
 
             self.weights = None
             self.biases = None
+            self.saver = None
 
             self.graph = tf.Graph() # initialize new grap
             self.build(n_features, learning_rate,n_hidden,alpha, decay_rate) # building graph
@@ -19,6 +20,8 @@ class Autoencoder(object):
             self.sess = tf.Session(graph=self.graph) # create session by the graph 
             #self.sess = tf.Session(graph=self.graph, config=tf.ConfigProto(log_device_placement=True)) # create session by the graph 
             ## ASUS-Joseph-18080601 <<<
+            if RESTORE_MODEL_ENABLE:
+                self.saver.restore(self.sess, IMPORT_PATH)
 
 
     def build(self,n_features ,learning_rate,n_hidden,alpha, decay_rate):
@@ -76,8 +79,13 @@ class Autoencoder(object):
                                                           n_hidden=n_hidden)  
             self.new_loss = self.new_original_loss + alpha * self.regularizer
 
-            ### Initialization
-            self.init_op = tf.global_variables_initializer()  
+            if RESTORE_MODEL_ENABLE:
+                self.saver = tf.train.Saver()
+            else:
+                ### Initialization
+                self.init_op = tf.global_variables_initializer()
+                if AUTO_SAVE_MODEL_ENABLE | FINISH_SAVE_MODEL_ENABLE:
+                    self.saver = tf.train.Saver()
 
 
     def structure(self,features,targets,n_hidden):
@@ -92,9 +100,11 @@ class Autoencoder(object):
                     tf.Variable(tf.truncated_normal(
                         shape=(n,n_encoder[i+1]),
                         #mean = 0.5,                       # ASUS-Joseph-18081301 
-                        stddev=0.1),dtype=tf.float32)
+                        stddev=0.1),dtype=tf.float32
+                        )
                 self.biases['encode{}'.format(i+1)] = \
-                    tf.Variable(tf.zeros( shape=(n_encoder[i+1]) ),dtype=tf.float32)
+                    tf.Variable(tf.zeros( shape=(n_encoder[i+1]) ),dtype=tf.float32
+                    )
 
             n_decoder = list(reversed(n_hidden))+[self.n_features]
             for i,n in enumerate(n_decoder[:-1]):
@@ -102,7 +112,8 @@ class Autoencoder(object):
                     tf.Variable(tf.truncated_normal(
                         shape=(n,n_decoder[i+1]),
                         #mean = 0.5,                       # ASUS-Joseph-18081301
-                        stddev=0.1),dtype=tf.float32)
+                        stddev=0.1),dtype=tf.float32
+                        )
                 self.biases['decode{}'.format(i+1)] = \
                     tf.Variable(tf.zeros( shape=(n_decoder[i+1]) ),dtype=tf.float32)                    
 
@@ -175,9 +186,12 @@ class Autoencoder(object):
 
         N = X.shape[0]
         random.seed(9000)
-        if not batch_size: batch_size=N
+        if not batch_size:
+            batch_size=N
 
-        self.sess.run(self.init_op)
+        if not RESTORE_MODEL_ENABLE:        # ASUS-Joseph-18082402
+            self.sess.run(self.init_op)     
+
         for epoch in range(epochs):
             print("Epoch %2d/%2d: "%(epoch+1,epochs))
             start_time = time.time()
@@ -238,3 +252,11 @@ class Autoencoder(object):
         ndarray = np.array(ndarray)
         if len(ndarray.shape)==1: ndarray = np.reshape(ndarray,(1,ndarray.shape[0]))
         return ndarray
+
+    #ASUS-Joseph-18082401 >>>
+    def save_model(self, export_path):
+        #saver = tf.train.Saver()
+        save_path = self.saver.save(self.sess, export_path)
+        print("Save modoel variables at ", save_path)
+
+    #ASUS-Joseph-18082401 <<<

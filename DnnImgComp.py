@@ -1,17 +1,15 @@
+from Token import *
 from ImgToArrayLib import *
 from AutoEncoder import *
 from ThreadClassDef import ThreadWithReturnValue
-
-from tkinter import *               # PYTHON 3 ONLY
+import tkinter              # PYTHON 3 ONLY
 from PIL import Image
 
-from Token import *
-
-import time
 if TESTING_IMAGE_ENABLE:
     from TestImageLib import *
 
-
+if ASK_FOR_SAVE_MODEL_ENABLE:
+    from QueryLib import query_yes_no
 
 
 # Config the matplotlib backend as plotting inline in IPython
@@ -79,7 +77,19 @@ if __name__ == "__main__":
             if TESTING_IMAGE_ENABLE:
                 if i % (NumImgTrainedB4Test / FILE_LOAD) == 0:
                     print("\nPredict images, %d images have been trained ..." %(i * FILE_LOAD))
-                    PredictTestFileAndShow(model_1, flist, i * FILE_LOAD)
+                    PredictTestFileAndShow(model_1 = model_1, flist = flist, findex = 0, file_no = i * FILE_LOAD)
+
+            if AUTO_SAVE_MODEL_ENABLE:
+                Respond = True
+                if ASK_FOR_SAVE_MODEL_ENABLE:
+                    Respond = query_yes_no("Save current model ?")
+
+                if Respond and (i % (NumImgTrainedB4Test / FILE_LOAD) == 0):
+                    model_1.save_model(EXPORT_PATH)
+        
+        if FINISH_SAVE_MODEL_ENABLE:
+            model_1.save_model(EXPORT_PATH)
+
 
     """
     fig, axis = plt.subplots(2, 15, figsize=(15, 2))
@@ -91,9 +101,10 @@ if __name__ == "__main__":
         axis[1][i].imshow(img, cmap='gray')
     plt.show()
     """
+    
 
     if TESTING_IMAGE_ENABLE:
-        PredictTestFileAndShow(flist, 0)
+        PredictTestFileAndShow(model_1 = model_1, flist = flist, findex = 0)
 
     ##########################
     #
@@ -103,10 +114,10 @@ if __name__ == "__main__":
 
     
     
-    root = Tk()
+    root = tkinter.Tk()
     root.wm_attributes('-topmost',1)
     root.title('Program Completed')
-    Label(root, text = "The testing image: " + PredFile + " is created\nPlease close this windows.", font=("Courier", 20)).grid()
+    tkinter.Label(root, text = "The testing image: is created\nPlease close this windows.", font=("Courier", 20)).grid()
 
     root.mainloop()
 

@@ -23,12 +23,18 @@ def DenoiseImgArray(ImgSeg): # argument ImgSeg(SHei * SWid * 3)
             if not NotNoise[i, j, 0]:
                 if j == 0:              startX = 0
                 elif j == (SWid - 1):   endX = SWid
+
                 if i == 0:              startY = 0
                 elif i == (SHei - 1):   endY = SHei
-                SamplesNum = (np.sum(NotNoise[startY:endY, startX:endX]) / 3)
+
+                SamplesNum = int(np.sum(NotNoise[startY:endY, startX:endX]) / 3)
                 #print("(%d, %d) -> (%d, %d): %d samples" %(startY, startX, endY, endX, int(SamplesNum)))
                 if SamplesNum:  # avoid divide-zero error
-                    Mul = np.multiply(ImgSeg[startY:endY, startX:endX], NotNoise[startY:endY, startX:endX])
+                    Mul = np.multiply(
+                        ImgSeg[startY:endY, startX:endX], 
+                        NotNoise[startY:endY, startX:endX]
+                        )
+
                     DenoiseArr[i, j] = np.sum(np.sum(Mul, axis=1),axis=0)  / SamplesNum
 
     #DenoiseArr = np.asarray(np.around(DenoiseArr))    # floating number around follows IEEE754
@@ -40,7 +46,11 @@ if DENOISE_USING_THREADS:
         dataX = []
         for data in PredRowData:
             Seg = np.reshape(data, (SHei, SWid, 3))
+
+
             Seg = DenoiseImgArray(Seg)
+            
+            
             dataX.append(Seg)
         
         dataX = np.concatenate((dataX), axis=1)
@@ -64,7 +74,10 @@ def BlendShiftedPredData(model_1, PredData, OriFname):
         for j in range(int(Y_Len / DenoiseTNum)): ### create 16 threads
             thread = []
             for k in range(DenoiseTNum):
-                thread.append(ThreadWithReturnValue(target=ThreadingDenoise, args=(PredShiData[(j*DenoiseTNum+k) * X_Len:((j+1)*DenoiseTNum+k)*X_Len], k,)))
+                thread.append(ThreadWithReturnValue(
+                    target=ThreadingDenoise, 
+                    args=(PredShiData[(j*DenoiseTNum+k) * X_Len:((j+1)*DenoiseTNum+k)*X_Len], k,))
+                    )
                 thread[k].start()
 
             for k in range(DenoiseTNum):
@@ -84,25 +97,28 @@ def BlendShiftedPredData(model_1, PredData, OriFname):
     
     PredShiData = np.asarray(dataY)
     PredShiData = np.reshape(PredShiData, (3456 - SHei, 4608 - SWid, 3))
-    PredShiData += PredData[ int(SHei / 2):int(3456 - SHei / 2), int(SWid / 2):int(4608 - SWid / 2)] 
+    PredShiData += PredData[int(SHei / 2):int(3456 - SHei / 2), int(SWid / 2):int(4608 - SWid / 2)] 
     PredShiData = np.divide(PredShiData, 2)
     PredData[int(SHei / 2):int(3456 - SHei / 2), int(SWid / 2):int(4608 - SWid / 2 )] = PredShiData
     return PredData
 # ASUS-Joseph-18082202 <<<
 
 
-def PredictTestFileAndShow(model_1, flist, findex = 0):
-
+def PredictTestFileAndShow(model_1, flist, findex = 0, file_no = 999):
+    print("Start predicting image...")
     ############# notice DPI and save file may change content (JPEG compression)#################
     X_Len = (int)(4608 / SWid)   # = 16
     Y_Len = (int)(3456 / SHei)   # = 12
 
-    TestFileIndex = 0
-
-    #AssImg = Image.new('RGB', (4608, 3456), (255, 255, 255))
-    test_data = LoadCroppedImage(flist, TestFileIndex,TestFileIndex, False) # shape = (384, 288, 864)
+    test_data = LoadCroppedImage(
+        flist = flist, 
+        OriIndexFrom = findex,
+        OriIndexTo = findex, 
+        shuffle = False
+        ) # shape = (384, 288, 864)
 
     PredData = model_1.predict(test_data)
+
     ### Fix the RGB value overflow error when ReLU transform function is selected for output layer.
     ### ReLU does not set the upper bound value.
     PredData = PredData.clip(max=255, min=0)     # ASUS-Joseph-18082201
@@ -116,7 +132,10 @@ def PredictTestFileAndShow(model_1, flist, findex = 0):
         for j in range(int(Y_Len / DenoiseTNum)): ### create 16 threads
             thread = []
             for k in range(DenoiseTNum):
-                thread.append(ThreadWithReturnValue(target=ThreadingDenoise, args=(PredData[(j*DenoiseTNum+k)*X_Len:((j+1)*DenoiseTNum+k)*X_Len], k, )))
+                thread.append(ThreadWithReturnValue(
+                    target=ThreadingDenoise, 
+                    args=(PredData[(j*DenoiseTNum+k)*X_Len:((j+1)*DenoiseTNum+k)*X_Len], k, )
+                    ))
                 #print("PredData[%d:%d] is assigned to thread %d" %((j*DenoiseTNum+k)*X_Len, ((j+1)*DenoiseTNum+k)*X_Len, k))
                 thread[k].start()
 
@@ -140,7 +159,7 @@ def PredictTestFileAndShow(model_1, flist, findex = 0):
 
     ### Save the image before blend (post processing)
     
-    PredFile = flist[TestFileIndex].rsplit('.', 1)[0] + "_pred_bfBlend" +  str(findex) + ".jpg"
+    PredFile = flist[findex].rsplit('.', 1)[0] + "_pred_bfBlend" +  str(file_no) + ".jpg"
     print("The predicted image without blend: %s is produced" %(PredFile))
     Cim = Image.fromarray(np.asarray(np.around(PredData), dtype=np.uint8), mode="RGB")  # floating number around rule follows IEEE
     Cim.save(PredFile, quality = 100)
@@ -148,8 +167,12 @@ def PredictTestFileAndShow(model_1, flist, findex = 0):
     
 
     ### Predict shifted image
-    PredData = BlendShiftedPredData(model_1, PredData, flist[TestFileIndex])
-    PredFile = flist[TestFileIndex].rsplit('.', 1)[0] + "_pred_" +  str(findex) + ".jpg"
+    PredData = BlendShiftedPredData(
+        model_1 = model_1, 
+        PredData = PredData, 
+        OriFname = flist[findex]
+        )
+    PredFile = flist[findex].rsplit('.', 1)[0] + "_pred_" +  str(file_no) + ".jpg"
     print("The predicted image with blend: %s is produced" %(PredFile))
     Cim = Image.fromarray(np.asarray(np.around(PredData), dtype=np.uint8), mode="RGB")
     Cim.save(PredFile, quality = 100)

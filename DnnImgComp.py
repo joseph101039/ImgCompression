@@ -29,14 +29,15 @@ if __name__ == "__main__":
     model_1 = Autoencoder( n_features=N_Shape,
                         #learning_rate= 0.0005,    ## last best value is 0.0005 (loss mean 2000 min 1600); 0.005 all black
                         learning_rate= 0.0005,
-                        n_hidden=[N_Shape, 500, 250, 125],
-                        #n_hidden=[N_Shape, 500, 200],
+                        #n_hidden=[N_Shape, 500, 250, 125],
+                        n_hidden=[N_Shape, 500, 200, 100],
                         #alpha=0.00,
                         alpha=0.000,   # ASUS-Joseph-18081303
                         decay_rate = 0.99      # 1 means no decay
                         )
 
-
+    if RESTORE_MODEL_ENABLE:
+        print("Restore model from %s ..." %(IMPORT_PATH))
 
     ##################################################
     #
@@ -80,13 +81,14 @@ if __name__ == "__main__":
                     PredictTestFileAndShow(model_1 = model_1, flist = flist, findex = 0, file_no = i * FILE_LOAD)
 
             if AUTO_SAVE_MODEL_ENABLE:
-                Respond = True
-                if ASK_FOR_SAVE_MODEL_ENABLE:
-                    Respond = query_yes_no("Save current model ?")
+                if i % (NumImgTrainedB4Test / FILE_LOAD) == 0:
+                    Respond = True
+                    if ASK_FOR_SAVE_MODEL_ENABLE:
+                        Respond = query_yes_no("Save current model at %s ?" %(EXPORT_PATH))
 
-                if Respond and (i % (NumImgTrainedB4Test / FILE_LOAD) == 0):
-                    model_1.save_model(EXPORT_PATH)
-        
+                    if Respond:
+                        model_1.save_model(EXPORT_PATH)
+            
         if FINISH_SAVE_MODEL_ENABLE:
             model_1.save_model(EXPORT_PATH)
 

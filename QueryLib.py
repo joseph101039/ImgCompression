@@ -15,5 +15,3 @@ def query_yes_no(question):
         else:
             sys.stdout.write("Please respond with 'yes' or 'no' "
                              "(or 'y' or 'n').\n")
-
-query_yes_no("Save current model ?")

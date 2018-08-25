@@ -40,12 +40,19 @@ global IMPORT_PATH
 
 TRANING_MODE_ENABLE = 1     # Training a new model
 TESTING_IMAGE_ENABLE = 1    # predict images and save to disk
-DENOISE_USING_THREADS = 0    # use threads or serial computing to denoise predicted image
 
+### Render 
+DENOISE_ENABLE = 0 & TESTING_IMAGE_ENABLE
+BLEND_ENABLE = 0 & TESTING_IMAGE_ENABLE
+DENOISE_USING_THREADS = 0 & DENOISE_ENABLE     # use threads or serial computing to denoise predicted image
+
+### Save and restore model
 AUTO_SAVE_MODEL_ENABLE  =   1 & TRANING_MODE_ENABLE
-FINISH_SAVE_MODEL_ENABLE =  0 & TRANING_MODE_ENABLE
-RESTORE_MODEL_ENABLE = 0
 ASK_FOR_SAVE_MODEL_ENABLE = 1 & AUTO_SAVE_MODEL_ENABLE      # Can decide whether to save the model after review the current predicted image
+FINISH_SAVE_MODEL_ENABLE =  0 & TRANING_MODE_ENABLE
+
+RESTORE_MODEL_ENABLE = 0    
+
 
 ##########################
 #
@@ -55,19 +62,19 @@ ASK_FOR_SAVE_MODEL_ENABLE = 1 & AUTO_SAVE_MODEL_ENABLE      # Can decide whether
 
 
 ## Slice a image into SWid * SHei pieces of image
-FILE_LOAD = 5  # number of cropped image loaded into memory at once (consider memory size limitation 5 to 10 is a proper range)
+FILE_LOAD = 7  # number of cropped image loaded into memory at once (consider memory size limitation 5 to 10 is a proper range)
 SHei = 18
 SWid = 18
 BATCH_SIZE = 250
 
 if TESTING_IMAGE_ENABLE | AUTO_SAVE_MODEL_ENABLE:
-    NumImgTrainedB4Test = 50
+    NumImgTrainedB4Test = 35
 
 if TESTING_IMAGE_ENABLE & DENOISE_USING_THREADS:
-    DenoiseTNum = 5
+    DenoiseTNum = 8
 
 if AUTO_SAVE_MODEL_ENABLE | FINISH_SAVE_MODEL_ENABLE:
-    EXPORT_PATH = "./_model/MiniDnn1/model_1.ckpt"
+    EXPORT_PATH = "./_model\MiniDnn_18x18_500_200_100/model_1.ckpt"
 
 if RESTORE_MODEL_ENABLE:
-    IMPORT_PATH = "./_model/MiniDnn1/model_1.ckpt"
+    IMPORT_PATH = "./_model/MiniDnn_18x18_500_200_100/model_1.ckpt"
